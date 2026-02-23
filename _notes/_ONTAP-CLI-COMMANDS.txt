@@ -1,0 +1,68 @@
+
+
+
+# VOLUME CREATES #
+{
+volume create -vserver svm01 -volume svm01_vol_nfs30_0_ro -security-style unix -junction-path /svm01_vol_nfs30_0_ro -state online -policy v_ep_nfs30_0_ro -aggregate hdd01_ontap001_01 -size 2G -snapshot-policy none -percent-snapshot-space 0 -space-guarantee volume -qos-adaptive-policy-group performance -autosize-mode off -foreground false;
+volume create -vserver svm01 -volume svm01_vol_nfs30_1_rw -security-style unix -junction-path /svm01_vol_nfs30_1_rw -state online -policy v_ep_nfs30_1_rw -aggregate hdd02_ontap001_01 -size 2G -snapshot-policy none -percent-snapshot-space 0 -space-guarantee volume -qos-adaptive-policy-group performance -autosize-mode off -foreground false;
+volume create -vserver svm01 -volume svm01_vol_nfs30_2_rt -security-style unix -junction-path /svm01_vol_nfs30_2_rt -state online -policy v_ep_nfs30_2_rt -aggregate ssd01_ontap001_01 -size 2G -snapshot-policy none -percent-snapshot-space 0 -space-guarantee volume -qos-adaptive-policy-group performance -autosize-mode off -foreground false;
+volume create -vserver svm01 -volume svm01_vol_nfs40_0_ro -security-style unix -junction-path /svm01_vol_nfs40_0_ro -state online -policy v_ep_nfs40_0_ro -aggregate ssd02_ontap001_01 -size 2G -snapshot-policy none -percent-snapshot-space 0 -space-guarantee volume -qos-adaptive-policy-group performance -autosize-mode off -foreground false;
+volume create -vserver svm01 -volume svm01_vol_nfs40_1_rw -security-style unix -junction-path /svm01_vol_nfs40_1_rw -state online -policy v_ep_nfs40_1_rw -aggregate ssd03_ontap001_01 -size 2G -snapshot-policy none -percent-snapshot-space 0 -space-guarantee volume -qos-adaptive-policy-group performance -autosize-mode off -foreground false;
+volume create -vserver svm01 -volume svm01_vol_nfs40_2_rt -security-style unix -junction-path /svm01_vol_nfs40_2_rt -state online -policy v_ep_nfs40_2_rt -aggregate hdd01_ontap001_01 -size 2G -snapshot-policy none -percent-snapshot-space 0 -space-guarantee volume -qos-adaptive-policy-group performance -autosize-mode off -foreground false;
+volume create -vserver svm01 -volume svm01_vol_nfs41_0_ro -security-style unix -junction-path /svm01_vol_nfs41_0_ro -state online -policy v_ep_nfs41_0_ro -aggregate hdd02_ontap001_01 -size 2G -snapshot-policy none -percent-snapshot-space 0 -space-guarantee volume -qos-adaptive-policy-group performance -autosize-mode off -foreground false;
+volume create -vserver svm01 -volume svm01_vol_nfs41_1_rw -security-style unix -junction-path /svm01_vol_nfs41_1_rw -state online -policy v_ep_nfs41_1_rw -aggregate ssd01_ontap001_01 -size 2G -snapshot-policy none -percent-snapshot-space 0 -space-guarantee volume -qos-adaptive-policy-group performance -autosize-mode off -foreground false;
+volume create -vserver svm01 -volume svm01_vol_nfs41_2_rt -security-style unix -junction-path /svm01_vol_nfs41_2_rt -state online -policy v_ep_nfs41_2_rt -aggregate ssd02_ontap001_01 -size 2G -snapshot-policy none -percent-snapshot-space 0 -space-guarantee volume -qos-adaptive-policy-group performance -autosize-mode off -foreground false;
+volume create -vserver svm01 -volume svm01_vol_nfs42_0_ro -security-style unix -junction-path /svm01_vol_nfs42_0_ro -state online -policy v_ep_nfs42_0_ro -aggregate ssd03_ontap001_01 -size 2G -snapshot-policy none -percent-snapshot-space 0 -space-guarantee volume -qos-adaptive-policy-group performance -autosize-mode off -foreground false;
+volume create -vserver svm01 -volume svm01_vol_nfs42_1_rw -security-style unix -junction-path /svm01_vol_nfs42_1_rw -state online -policy v_ep_nfs42_1_rw -aggregate hdd01_ontap001_01 -size 2G -snapshot-policy none -percent-snapshot-space 0 -space-guarantee volume -qos-adaptive-policy-group performance -autosize-mode off -foreground false;
+volume create -vserver svm01 -volume svm01_vol_nfs42_2_rt -security-style unix -junction-path /svm01_vol_nfs42_2_rt -state online -policy v_ep_nfs42_2_rt -aggregate hdd02_ontap001_01 -size 2G -snapshot-policy none -percent-snapshot-space 0 -space-guarantee volume -qos-adaptive-policy-group performance -autosize-mode off -foreground false;
+}
+
+
+
+
+
+
+
+# ONTAP EXPORT-POLICIES AND RULES
+
+export-policy create -vserver svm01 -policyname v_ep_nfs30_0_ro
+export-policy create -vserver svm01 -policyname v_ep_nfs30_1_rw
+export-policy create -vserver svm01 -policyname v_ep_nfs30_2_rt
+export-policy create -vserver svm01 -policyname v_ep_nfs40_0_ro
+export-policy create -vserver svm01 -policyname v_ep_nfs40_1_rw
+export-policy create -vserver svm01 -policyname v_ep_nfs40_2_rt
+export-policy create -vserver svm01 -policyname v_ep_nfs41_0_ro
+export-policy create -vserver svm01 -policyname v_ep_nfs41_1_rw
+export-policy create -vserver svm01 -policyname v_ep_nfs41_2_rt
+export-policy create -vserver svm01 -policyname v_ep_nfs42_0_ro
+export-policy create -vserver svm01 -policyname v_ep_nfs42_1_rw
+export-policy create -vserver svm01 -policyname v_ep_nfs42_2_rt
+
+export-policy rule create -vserver svm01 -policyname v_ep_nfs30_0_ro -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs3 -rorule sys -rwrule none -superuser none
+export-policy rule create -vserver svm01 -policyname v_ep_nfs30_1_rw -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs3 -rorule sys -rwrule sys -superuser none
+export-policy rule create -vserver svm01 -policyname v_ep_nfs30_2_rt -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs3 -rorule sys -rwrule sys -superuser sys
+export-policy rule create -vserver svm01 -policyname v_ep_nfs40_0_ro -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule none -superuser none
+export-policy rule create -vserver svm01 -policyname v_ep_nfs40_1_rw -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule sys -superuser none
+export-policy rule create -vserver svm01 -policyname v_ep_nfs40_2_rt -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule sys -superuser sys
+export-policy rule create -vserver svm01 -policyname v_ep_nfs41_0_ro -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule none -superuser none
+export-policy rule create -vserver svm01 -policyname v_ep_nfs41_1_rw -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule sys -superuser none
+export-policy rule create -vserver svm01 -policyname v_ep_nfs41_2_rt -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule sys -superuser sys
+export-policy rule create -vserver svm01 -policyname v_ep_nfs42_0_ro -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule none -superuser none
+export-policy rule create -vserver svm01 -policyname v_ep_nfs42_1_rw -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule sys -superuser none
+export-policy rule create -vserver svm01 -policyname v_ep_nfs42_2_rt -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule sys -superuser sys
+
+export-policy rule modify -vserver svm01 -policyname v_ep_nfs30_0_ro -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs3 -rorule sys -rwrule none -superuser none
+export-policy rule modify -vserver svm01 -policyname v_ep_nfs30_1_rw -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs3 -rorule sys -rwrule sys -superuser none
+export-policy rule modify -vserver svm01 -policyname v_ep_nfs30_2_rt -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs3 -rorule sys -rwrule sys -superuser sys
+export-policy rule modify -vserver svm01 -policyname v_ep_nfs40_0_ro -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule none -superuser none
+export-policy rule modify -vserver svm01 -policyname v_ep_nfs40_1_rw -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule sys -superuser none
+export-policy rule modify -vserver svm01 -policyname v_ep_nfs40_2_rt -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule sys -superuser sys
+export-policy rule modify -vserver svm01 -policyname v_ep_nfs41_0_ro -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule none -superuser none
+export-policy rule modify -vserver svm01 -policyname v_ep_nfs41_1_rw -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule sys -superuser none
+export-policy rule modify -vserver svm01 -policyname v_ep_nfs41_2_rt -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule sys -superuser sys
+export-policy rule modify -vserver svm01 -policyname v_ep_nfs42_0_ro -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule none -superuser none
+export-policy rule modify -vserver svm01 -policyname v_ep_nfs42_1_rw -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule sys -superuser none
+export-policy rule modify -vserver svm01 -policyname v_ep_nfs42_2_rt -ruleindex 1 -clientmatch 0.0.0.0/0 -protocol nfs4 -rorule sys -rwrule sys -superuser sys
+
+
+export-policy rule show -fields rorule,rwrule,superuser,protocol
