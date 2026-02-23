@@ -1,0 +1,79 @@
+================================================================================
+TEST NAME AND OTHER STUFF
+================================================================================
+
+TEST RUN INFORMATION
+--------------------------------------------------------------------------------
+Test Suite               : NFS3 Protocol Validation
+Date                     : 2026-02-22 21:51:14
+Operating System         : Linux 6.17.0-14-generic
+Python Version           : 3.12.3
+                         : 
+
+Vendor                   : Dell
+Software                 : PowerScale OneFS 9.10.0.0
+Server (rw)              : onefs002-2.beastmode.local.net
+Host Access              : read
+Export Path (rw)         : /ifs/ACCESS_ZONES/system/nfs3_01_ro
+Total Duration           : 0m 18s
+
+================================================================================
+TEST RESULTS AND DOCUMENTATION
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST: test_mount_options_verification
+--------------------------------------------------------------------------------
+Purpose: Confirm that the actual mount options match the requested configuration
+Started: 2026-02-22 21:51:14
+
+  • Phase 1: Reading /proc/mounts
+  • Phase 2: Searching for mount point: /tmp/nfs3_test_qyqk6r4i
+  • Phase 3: Parsing options: rw,relatime,vers=3,rsize=1048576,wsize=1048576,namlen=255,hard,fatal_neterrors=none,proto=tcp,timeo=600,retrans=2,sec=sys,mountaddr=192.168.0.126,mountvers=3,mountport=300,mountproto=tcp,local_lock=none,addr=192.168.0.126
+  •  ✓ NFS Version: 3
+  •  ✓ Transport: tcp
+
+Result: PASSED ✓
+Details: Mount options verified
+Completed: 2026-02-22 21:51:14
+
+
+--------------------------------------------------------------------------------
+TEST: transport_protocol
+--------------------------------------------------------------------------------
+Purpose: Verify that the mount is using the correct transport protocol (TCP or UDP)
+Started: 2026-02-22 21:51:14
+
+  • Phase 1: Searching for mount point and verifying transport protocol
+  • Found mount entry in /proc/mounts
+  • Verified TCP protocol in use
+
+Result: PASSED ✓
+Details: Using TCP as expected
+Completed: 2026-02-22 21:51:14
+
+
+--------------------------------------------------------------------------------
+TEST: readonly_mount_enforcement
+--------------------------------------------------------------------------------
+Purpose: Verify that a read-only mount correctly blocks write operations, confirming that NFS3 enforces read-only access restrictions as expected
+Started: 2026-02-22 21:51:14
+
+  • Phase 1: Attempting write on RO mount
+
+Result: PASSED ✓
+Details: Write blocked as expected (errno 30)
+Completed: 2026-02-22 21:51:14
+
+================================================================================
+TEST SUMMARY
+================================================================================
+Total Tests: 3
+Passed: 3
+Failed: 0
+Success Rate: 100.0%
+
+
+================================================================================
+Report generated: 2026-02-22 21:51:14
+================================================================================

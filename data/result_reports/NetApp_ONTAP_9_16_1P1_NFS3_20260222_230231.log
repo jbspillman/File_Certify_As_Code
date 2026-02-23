@@ -1,0 +1,171 @@
+================================================================================
+TEST NAME AND OTHER STUFF
+================================================================================
+
+TEST RUN INFORMATION
+--------------------------------------------------------------------------------
+Test Suite               : NFS3 Protocol Validation
+Date                     : 2026-02-22 23:02:31
+Operating System         : Linux 6.17.0-14-generic
+Python Version           : 3.12.3
+                         : 
+
+Vendor                   : NetApp
+Software                 : ONTAP 9.16.1P1
+Server (rw)              : svm01.beastmode.local.net
+Host Access              : write
+Export Path (rw)         : /svm01_vol_nfs30_1_rw
+Total Duration           : 0m 0s
+
+================================================================================
+TEST RESULTS AND DOCUMENTATION
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST: test_mount_options_verification
+--------------------------------------------------------------------------------
+Purpose: Confirm that the actual mount options match the requested configuration
+Started: 2026-02-22 23:02:31
+
+  • Phase 1: Reading /proc/mounts
+  • Phase 2: Searching for mount point: /tmp/nfs3_test_qzhm9gxc
+  • Phase 3: Parsing options: rw,relatime,vers=3,rsize=65536,wsize=65536,namlen=255,hard,fatal_neterrors=none,proto=tcp,timeo=600,retrans=2,sec=sys,mountaddr=192.168.0.133,mountvers=3,mountport=635,mountproto=tcp,local_lock=none,addr=192.168.0.133
+  •  ✓ NFS Version: 3
+  •  ✓ Transport: tcp
+
+Result: PASSED ✓
+Details: Mount options verified
+Completed: 2026-02-22 23:02:31
+
+
+--------------------------------------------------------------------------------
+TEST: transport_protocol
+--------------------------------------------------------------------------------
+Purpose: Verify that the mount is using the correct transport protocol (TCP or UDP)
+Started: 2026-02-22 23:02:31
+
+  • Phase 1: Searching for mount point and verifying transport protocol
+  • Found mount entry in /proc/mounts
+  • Verified TCP protocol in use
+
+Result: PASSED ✓
+Details: Using TCP as expected
+Completed: 2026-02-22 23:02:31
+
+
+--------------------------------------------------------------------------------
+TEST: readwrite_mount_enforcement
+--------------------------------------------------------------------------------
+Purpose: Verify read-write mount allows create, modify, and delete operations
+Started: 2026-02-22 23:02:31
+
+
+Result: FAILED ✗
+Details: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+Completed: 2026-02-22 23:02:31
+
+
+--------------------------------------------------------------------------------
+TEST: basic_file_operations
+--------------------------------------------------------------------------------
+Purpose: Perform basic file operations (create, read, delete) to verify functionality
+Started: 2026-02-22 23:02:31
+
+
+Result: FAILED ✗
+Details: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+Completed: 2026-02-22 23:02:31
+
+
+--------------------------------------------------------------------------------
+TEST: idempotent_operations
+--------------------------------------------------------------------------------
+Purpose: Verify that repeated operations have the same effect as a single operation, confirming idempotency of file operations
+Started: 2026-02-22 23:02:31
+
+
+Result: FAILED ✗
+Details: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+Completed: 2026-02-22 23:02:31
+
+
+--------------------------------------------------------------------------------
+TEST: close_to_open_consistency
+--------------------------------------------------------------------------------
+Purpose: Verify that data written by one process is visible to another process after the first process closes the file, confirming close-to-open consistency guarantees of NFS3
+Started: 2026-02-22 23:02:31
+
+
+Result: FAILED ✗
+Details: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+Completed: 2026-02-22 23:02:31
+
+
+--------------------------------------------------------------------------------
+TEST: nlm_basic_locking
+--------------------------------------------------------------------------------
+Purpose: Verify that exclusive locks can be acquired and block other processes as expected, confirming basic NLM file locking functionality of NFS3
+Started: 2026-02-22 23:02:31
+
+
+Result: FAILED ✗
+Details: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+Completed: 2026-02-22 23:02:31
+
+
+--------------------------------------------------------------------------------
+TEST: small_file_performance
+--------------------------------------------------------------------------------
+Purpose: Measure performance of creating, reading, and deleting 100 small files to evaluate small file operation performance of NFS3
+Started: 2026-02-22 23:02:31
+
+
+Result: FAILED ✗
+Details: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+Completed: 2026-02-22 23:02:31
+
+
+--------------------------------------------------------------------------------
+TEST: concurrent_writers
+--------------------------------------------------------------------------------
+Purpose: Verify that 10 concurrent writer threads can write to separate files without data corruption, confirming that NFS3 can handle concurrent write operations correctly
+Started: 2026-02-22 23:02:31
+
+
+Result: FAILED ✗
+Details: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+Completed: 2026-02-22 23:02:31
+
+
+--------------------------------------------------------------------------------
+TEST: large_sequential_io
+--------------------------------------------------------------------------------
+Purpose: Verify that 100MB file can be written and read sequentially without corruption
+Started: 2026-02-22 23:02:31
+
+
+Result: FAILED ✗
+Details: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+Completed: 2026-02-22 23:02:31
+
+================================================================================
+TEST SUMMARY
+================================================================================
+Total Tests: 10
+Passed: 2
+Failed: 8
+Success Rate: 20.0%
+
+Failed Tests:
+  ✗ readwrite_mount_enforcement: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+  ✗ basic_file_operations: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+  ✗ idempotent_operations: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+  ✗ close_to_open_consistency: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+  ✗ nlm_basic_locking: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+  ✗ small_file_performance: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+  ✗ concurrent_writers: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+  ✗ large_sequential_io: Failed to create test directory: [Errno 13] Permission denied: '/tmp/nfs3_test_qzhm9gxc/test_1771819351_2875080'
+
+================================================================================
+Report generated: 2026-02-22 23:02:31
+================================================================================
