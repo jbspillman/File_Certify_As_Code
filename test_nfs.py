@@ -160,11 +160,14 @@ def nfs_test_suite(log, mounts_list: list[dict] = []):
 
                 log.info(f"Verified {mount_path} is a valid mount point.")
                 options_string = str(MOUNT_OPTIONS(**nfs_options))
-
+                log.blank()
+                
                 log.info(f"Discovered: [ {len(v0_functions)} ] test functions with prefix '{v0_prefix}' to execute for each mount.")
                 log.header(f"Running: {v0_prefix}*  ({len(v0_functions)} tests)")
                 for name, func in v0_functions:
-                    log.step(f"► {name}")
+                    log.blank()
+                    log.info(f'{stars_80}')
+                    log.step(f"► START: {name}")
                     try:
                         result = func(log, mount_path, MOUNT_OPTIONS(**nfs_options), all_results)
                         if result:
@@ -176,13 +179,17 @@ def nfs_test_suite(log, mounts_list: list[dict] = []):
                     except Exception as e:
                         # log.error(f"✗ {name} — exception: {e}", exc_info=True)
                         failed += 1
+                    log.step(f"◄ FINISH: {name}")
 
 
                 if 'majorvers=3' in options_string:
+                    log.blank()
                     log.info(f"Discovered: [ {len(v3_functions)} ] test functions with prefix '{v3_prefix}' to execute for each mount.")
                     log.header(f"Running: {v3_prefix}*  ({len(v3_functions)} tests)")
                     for name, func in v3_functions:
-                        log.step(f"► {name}")
+                        log.blank()
+                        log.info(f'{stars_25}{stars_25}')
+                        log.step(f"► START: {name}")
                         try:
                             result = func(log, mount_path, MOUNT_OPTIONS(**nfs_options), all_results)
                             if result:
@@ -194,12 +201,16 @@ def nfs_test_suite(log, mounts_list: list[dict] = []):
                         except Exception as e:
                             #log.error(f"✗ {name} — exception: {e}", exc_info=True)
                             failed += 1
+                        log.step(f"◄ FINISH: {name}")
 
                 if 'majorvers=4' in options_string:
+                    log.blank()
                     log.info(f"Discovered: [ {len(v4_functions)} ] test functions with prefix '{v4_prefix}' to execute for each mount.")   
                     log.header(f"Running: {v4_prefix}*  ({len(v4_functions)} tests)")
                     for name, func in v4_functions:
-                        log.step(f"► {name}")
+                        log.blank()
+                        log.info(f'{stars_80}')
+                        log.step(f"► START: {name}")
                         try:
                             result = func(log, mount_path, MOUNT_OPTIONS(**nfs_options), all_results)
                             if result:
@@ -211,6 +222,7 @@ def nfs_test_suite(log, mounts_list: list[dict] = []):
                         except Exception as e:
                             # log.error(f"✗ {name} — exception: {e}", exc_info=True)
                             failed += 1
+                        log.step(f"◄ FINISH: {name}")
                 log.blank()
             else:
                 log.error(f"{mount_path} does not appear to be a valid mount point. Check mount logs for details.")
@@ -222,6 +234,9 @@ def nfs_test_suite(log, mounts_list: list[dict] = []):
         else:
             log.error(f"Failed to mount {vendor} {software} export. Skipping unmount.")
             continue
+    log.blank()
+    log.blank()
+    log.blank()
 
 
 #################################################################################################################################
@@ -779,6 +794,118 @@ def test_nfs_readonly_mount_read_operations(log, mount_point, mount_options=None
     except Exception as e:
         log.error(f"✗ Test failed: {e}")
         log_result(log, test_name, test_description, False, str(e), all_results)
+
+
+def test_nfs_nconnect(log, mount_point, expected_connections=None, server_ip=None, all_results=None):
+
+    test_name = 'nconnect_verification'
+    test_description = "Verify nconnect mount option establishes multiple TCP connections to NFS server"
+
+    log.info(f'{equal_80}')
+    log.info("TEST: NFS nconnect Verification")
+    log.info(f'{equal_80}')
+
+    try:
+        # Phase 1: Check if nconnect is in mount options
+        log.info("Phase 1: Checking mount options for nconnect")
+        nconnect_value = None
+        with open('/proc/mounts', 'r') as f:
+            for line in f.readlines():
+                if mount_point in line:
+                    options = line.split()[3]
+                    log.info(f"Mount options: {options}")
+                    for opt in options.split(','):
+                        if opt.startswith('nconnect='):
+                            nconnect_value = int(opt.split('=')[1])
+                            break
+
+        if nconnect_value is None:
+            msg = f"nconnect option not found in mount options for {mount_point}"
+            log.error(f"✗ {msg}")
+            log_result(log, test_name, test_description, False, msg, all_results)
+            return
+
+        log.info(f"✓ nconnect={nconnect_value} found in mount options")
+
+        # Phase 2: Verify actual TCP connections if server_ip provided
+        if server_ip:
+            log.info(f"Phase 2: Verifying TCP connections to {server_ip}")
+            import subprocess
+            result = subprocess.run(
+                ['ss', '-tn', 'dst', server_ip],
+                capture_output=True, text=True
+            )
+            # Count lines that show port 2049 (NFS)
+            connections = [
+                line for line in result.stdout.splitlines()
+                if ':2049' in line
+            ]
+            actual_count = len(connections)
+            log.info(f"TCP connections to {server_ip}:2049 — found {actual_count}")
+            for conn in connections:
+                log.info(f"  {conn.strip()}")
+
+            target = expected_connections or nconnect_value
+            if actual_count >= target:
+                log.info(f"✓ Expected {target} connections, found {actual_count}")
+            else:
+                msg = f"Expected {target} TCP connections, only found {actual_count}"
+                log.warning(f"✗ {msg}")
+                log_result(log, test_name, test_description, False, msg, all_results)
+                return
+        else:
+            log.info("Phase 2: Skipped (no server_ip provided — cannot verify TCP connections)")
+
+        # Phase 3: Functional I/O test to exercise the connections
+        log.info("Phase 3: Functional I/O across nconnect mount")
+        is_success, test_dir = create_test_directory(log, mount_point)
+        if not is_success:
+            log_result(log, test_name, test_description, False, f"Failed to create test directory: {test_dir}", all_results)
+            return
+
+        import threading
+        errors = []
+
+        def write_read_worker(worker_id):
+            try:
+                test_file = os.path.join(test_dir, f'nconnect_worker_{worker_id}.txt')
+                test_data = f"nconnect worker {worker_id} data"
+                with open(test_file, 'w') as f:
+                    f.write(test_data)
+                with open(test_file, 'r') as f:
+                    content = f.read()
+                assert content == test_data, f"Data mismatch on worker {worker_id}"
+                os.remove(test_file)
+            except Exception as e:
+                errors.append(str(e))
+
+        # Spawn threads equal to nconnect value to exercise all connections
+        threads = [threading.Thread(target=write_read_worker, args=(i,)) for i in range(nconnect_value)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        if errors:
+            msg = f"Parallel I/O errors: {errors}"
+            log.error(f"✗ {msg}")
+            log_result(log, test_name, test_description, False, msg, all_results)
+            return
+
+        log.info(f"✓ {nconnect_value} parallel workers completed I/O successfully")
+
+        # Cleanup
+        log.info("Phase 4: Cleanup")
+        os.rmdir(test_dir)
+        log.info("✓ Test directory removed")
+
+        log_result(log, test_name, test_description, True,
+                   f"nconnect={nconnect_value} verified with {nconnect_value} parallel workers", all_results)
+
+    except Exception as e:
+        log.error(f"✗ Test failed: {e}")
+        log_result(log, test_name, test_description, False, str(e), all_results)
+
 
 #################################################################################################################################
 ### NFS 3 SPECIFIC TESTS WOULD GO HERE ###
