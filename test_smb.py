@@ -1,13 +1,21 @@
 # test_smb.py - SMB/CIFS protocol validation tests for storage upgrade verification
-# Requires: root and other nonsense;  python3 -m pip3 install smbprotocol --
+# Requires: root and other nonsense;  
+# python3 -m pip3 install smbprotocol
 
-import hashlib
-import os
+from exec_logger import title_large , title_small
+from exec_secrets import get_creds
+
+from dataclasses import dataclass, field, replace
+from typing import Optional
+import subprocess
 import threading
+import inspect
+import hashlib
 import time
 import uuid
-from dataclasses import dataclass, field
-from typing import Optional
+import sys
+import os
+
 import smbclient
 import smbclient.shutil
 from smbprotocol.connection import Connection
@@ -18,117 +26,110 @@ from smbprotocol.exceptions import (
 )
 from smbprotocol.session import Session
 
-''' some general constants '''
-stars_25 = '*' * 25
-stars_80 = '*' * 80
-equal_25 = '=' * 25
-equal_80 = '=' * 80
-''' end of general constants '''
+
+# Solid lines
+lines_80 = '-' * 80   # ---------------
+dashd_80 = '─' * 80   # ───────────────
+equal_80 = '=' * 80   # ===============
+stars_80 = '*' * 80   # ***************
+stars_25 = '*' * 25   # ***************
+equal_25 = '=' * 25   # ===============
+
+# Dividers
+thick  = '▓' * 80     # ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+medium = '▒' * 80     # ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒
+light  = '░' * 80     # ░░░░░░░░░░░░░░░░░░░░
+
 
 preset_shares = [
     {
         'vendor': 'NetApp',
         'software': 'ONTAP 9.16.1P1',
-        'export_server': 'svm01.beastmode.local.net',
-        "export_share": "svm01_share01",
-        'host_access': 'rw',           # read write full none
-        'host_access_expected': 'rw',  # read write full none
-        'user_access': 'rw',           # read write full none
-        'user_access_expected': 'rw',  # read write full none
+        'export_server': 'svm02.beastmode.local.net',
+        "export_shares": [
+            "full_control",
+            "modify_control",
+            "read_control"
+        ],
         'options': {
-            'majorvers': 3,
+            'timeout': 30,
         }
     },
     {
         'vendor': 'Dell',
         'software': 'PowerScale OneFS 9.10.0.0',
-        'export_server': 'onefs002-2.beastmode.local.net',
-        "export_share": "smb01_rw",
-        'host_access': 'rw',           # read write full none
-        'host_access_expected': 'rw',  # read write full none
-        'user_access': 'rw',           # read write full none
-        'user_access_expected': 'rw',  # read write full none
+        'export_server': 'protocol.onefs002.beastmode.local.net',
+        "export_shares": [
+            "full_control",
+            "modify_control",
+            "read_control"
+        ],
         'options': {
-            'majorvers': 2,
+            'timeout': 30,
         }
     }
 ]   
 
-""" SMB Tests """
-smb_tests = [
-    "test_smb_share_enumeration ",
-    "test_smb_authentication_domain_user ",
-    "test_smb_authentication_local_user ",
-    "test_smb_anonymous_access_blocked ",
-    "test_smb_dialect_negotiation ",
-    "test_smb_signing_enabled ",
-    "test_smb_encryption_enabled ",
-    "test_smb_connect_to_share ",
-    "test_smb_list_directory ",
-    "test_smb_file_read ",
-    "test_smb_file_write ",
-    "test_smb_file_delete ",
-    "test_smb_file_rename ",
-    "test_smb_file_move ",
-    "test_smb_large_file_write_checksum ",
-    "test_smb_many_small_files ",
-    "test_smb_exclusive_lock ",
-    "test_smb_byte_range_lock ",
-    "test_smb_oplock_granted ",
-    "test_smb_lock_released_on_disconnect ",
-    "test_smb_acl_access_allowed ",
-    "test_smb_acl_access_denied ",
-    "test_smb_inherited_permissions ",
-    "test_smb_concurrent_reads ",
-    "test_smb_concurrent_writes ",
-    "test_smb_concurrent_read_write ",
-    "test_smb_dfs_namespace_resolution ",
-    "test_smb_dfs_failover ",
-    "test_smb_persistent_handle_after_failover ",
-    "test_smb_session_reconnect ",
-    "test_smb_audit_event_file_create ",
-    "test_smb_audit_event_file_delete ",
-    "test_smb_audit_event_permission_denied "
-]
 
 
-def smb_test_suite(log, shares_list: list[dict] = []):
+def smb_test_suite(log, vendor_software, shares_list: list[dict] = []):
     log.info("Starting SMB Test Suite")
-
 
     if not shares_list or len(shares_list) == 0:
         log.warning("No shares provided for SMB test suite. Please provide a list of shares to test.")
         shares_list = preset_shares
         log.info(f"Using preset shares for testing: {[f'{m['vendor']} {m['software']}' for m in shares_list]}")
-
-    for smb_share in shares_list:
-        
-        vendor = smb_share["vendor"]
-        software = smb_share["software"]
-        smb_server = smb_share["export_server"]
-        smb_export = smb_share["export_share"]
-        smb_options = smb_share["options"]
-
-        log.info(f"Vendor: {vendor} | Software: {software} | SMB Server: {smb_server} | SMB Export: {smb_export} ")
-        log.info(f"Testing SMB share {smb_export} on {smb_server} with options: {smb_options}")
-
-        for test_name in smb_tests:  
-            text_format = str(f'SMB Test Running:'.ljust(20) + f'"{test_name}"'.ljust(50) + " (placeholder)")
-            log.info(f"{text_format}")
-
-
-            time.sleep(.2)  # simulate time taken to run test
         log.blank()
-    
+        log.blank()
+
+    """Discover and run all SMB test functions matching prefix."""
+    all_results = []
+    prefix = "test_smb"
+    functions   = get_test_functions(prefix)
+
+
+    for cifs_share in shares_list:
         
-#################################################################################################################################
-#   Placeholder for actual SMB tests - to be implemented with real SMB client interactions and assertions
-#################################################################################################################################
+        vendor = cifs_share["vendor"]
+        software = cifs_share["software"]
+        smb_server = cifs_share["export_server"]
+        smb_shares = cifs_share["export_shares"]
+        smb_options = cifs_share["options"]
+
+        if vendor_software.upper() not in software.upper():
+            continue
+
+        # log.info(f"Vendor: {vendor} | Software: {software} | SMB Server: {smb_server} | SMB Export: {smb_share} ")
+        # log.info(f"Testing SMB share {smb_share} on {smb_server} with options: {smb_options}")
+
+        for name, func in functions:
+            log.info(name)
+            # log.blank()
+            # log.info(f'{stars_80}')
+            # log.step(f"► START: {name}")
+            
+            # try:
+            #     options = SMB_OPTIONS(**smb_options)  # validate options and set defaults
+            #     options = replace(options,vendor=vendor,software=software, host=smb_server, share=smb_share)
+            #     result = func(log, options, all_results)
+                
+            # except Exception as e:
+            #     log.error(f"✗ {name} — unhandled exception: {e}", exc_info=True)
+            #     all_results.append(options(name,False, str(e)))
+            # log.step(f"◄ FINISH: {name}")
+            # log.blank()
+
+       
+            # time.sleep(.2)  # simulate time taken to run test
+        # log.blank()
+    
 
 @dataclass
 class SMB_OPTIONS:
-    host: str                           # SMB server hostname or IP
-    share: str                          # Share name (e.g. "data")
+    vendor: str             = ""        # Vendor name
+    software: str           = ""        # Vendor Software Version
+    host: str               = ""        # SMB server hostname or IP
+    share: str              = ""        # Share name (e.g. "data")
     username: str           = ""        # Domain or local username
     password: str           = ""        # Password
     domain: str             = ""        # Domain (empty for local auth)
@@ -138,24 +139,28 @@ class SMB_OPTIONS:
     dialect: str            = ""        # Expected dialect e.g. "3.1.1"
     anonymous: bool         = False     # Attempt anonymous/guest access
     kerberos: bool          = False     # Use Kerberos authentication
-    dfs_namespace: str      = ""        # DFS namespace path if applicable
     timeout: int            = 30        # Connection timeout in seconds
 
 
-# ─────────────────────────────────────────────
-#  Test Results Dataclass
-# ─────────────────────────────────────────────
-@dataclass
-class SMB_TEST_RESULT:
-    name: str
-    passed: bool
-    detail: str = ""
+def log_result(log, test_name: str, test_description: str, passed: bool, message: str = "", all_results = None):
+    """Log test result"""
+
+    result = {
+        'test': test_name,
+        'description': test_description,
+        'passed': passed,
+        'message': message,
+        'timestamp': time.time()
+    }
+    status = "PASS" if passed else "FAIL"
+    log.info(f"[{status}] {test_name}: {message}")
+
+    if all_results is not None:
+        all_results.append(result)
+    return result
 
 
-# ─────────────────────────────────────────────
-#  Helper — register SMB session
-# ─────────────────────────────────────────────
-def _register_session(log, options: SMB_OPTIONS) -> bool:
+def _register_session(log, options) -> bool:
     """Register an smbclient session with the provided options."""
     try:
         kwargs = dict(
@@ -164,8 +169,11 @@ def _register_session(log, options: SMB_OPTIONS) -> bool:
             port=options.port,
             connection_timeout=options.timeout,
         )
+
+
         if options.domain:
             kwargs["domain"] = options.domain
+            username = f'{options.domain}\\{username}'
         if options.encrypt:
             kwargs["require_encryption"] = True
         if options.kerberos:
@@ -181,35 +189,190 @@ def _register_session(log, options: SMB_OPTIONS) -> bool:
         return False
 
 
-def _unc(options: SMB_OPTIONS, *parts: str) -> str:
+def _unc(options, *parts: str) -> str:
     """Build a UNC path: \\\\host\\share\\parts"""
     base = f"\\\\{options.host}\\{options.share}"
     return "\\".join([base] + list(parts)) if parts else base
 
 
-# ─────────────────────────────────────────────
-#  Connectivity & Authentication Tests
-# ─────────────────────────────────────────────
-def test_smb_share_enumeration(log, options: SMB_OPTIONS, all_results: list) -> bool:
-    """List available shares on the server."""
-    test_name = "test_smb_share_enumeration"
+def list_shares(log, target_device, auth_type="anon", dom="", usr="", psw=""):
+    
+    if auth_type == "anon":
+        smb_cmd = ['smbclient', '-L', target_device, '--no-pass']
+    elif auth_type == "local":
+        smb_cmd = ['smbclient', '-L', target_device, '-U', f'{usr}%{psw}']
+    elif auth_type == "domain":
+        usr = f'{dom}\\{usr}'
+        smb_cmd = ['smbclient', '-L', target_device, '-U', f'{usr}%{psw}']
+
+    # log.debug(f'{smb_cmd}')
+    result = subprocess.run(smb_cmd, capture_output=True, text=True)
+    return result.stdout
+
+
+def test_smb_share_enumeration_anon(log, options, all_results):
+    """List available shares on the server via anonymous."""
+    test_name = "smb_share_enumeration_anonymous"
+    test_description = "test smb share enumeration with anonymous access."
+
+
+    log.info(f'{equal_80}')
+    log.info("TEST: SMB Anonymous Server Share Enumeration ")
+    log.info(f'{equal_80}')
+
+    anon_string_found = False
+    enumerated_shares = False
     try:
-        shares = smbclient.listshares(options.host, username=options.username,
-                                      password=options.password, port=options.port)
-        share_names = [s for s in shares]
-        log.info(f"  Shares found: {', '.join(share_names)}")
-        passed = options.share in share_names
-        detail = f"target share '{options.share}' {'found' if passed else 'NOT found'}"
-        log.success(f"✓ {test_name}") if passed else log.error(f"✗ {test_name} — {detail}")
-        all_results.append(SMB_TEST_RESULT(test_name,passed, detail))
-        return passed
+        share_detail = list_shares(log, options.host, auth_type="anon")
+        for line in str(share_detail).split('\n'):
+            if 'Anonymous login successful' in line:
+                anon_string_found = True
+            if 'Sharename' in line or 'IPC$' in line:
+                enumerated_shares = True
+            if 'NT_STATUS_LOGON_FAILURE' in line or 'session setup failed' in line:
+                enumerated_shares = False
+        
+        if anon_string_found and enumerated_shares:   
+            log.error(f"✗ {test_name} failed. Anonymous access was NOT blocked and shares were found")
+            log_result(log, test_name, test_description, False, "Anonymous access was NOT blocked and shares were found", all_results)
+        
+        
+        elif anon_string_found and enumerated_shares is False:
+            log.success(f"✓ {test_name} passed. Anonymous access was granted but the server rejected the listing of shares")
+            log_result(log, test_name, test_description, True, "Anonymous access was granted but the server rejected the listing of share", all_results)
+
+        elif anon_string_found is False and enumerated_shares is False:
+            log.success(f"✓ {test_name} passed. Anonymous access was blocked and the server rejected the listing of shares")
+            log_result(log, test_name, test_description, True, "Anonymous access was blocked and the server rejected the listing of shares", all_results)
+        
+        else:
+            log.error(f"✗ {test_name} failed: please check the results of this test.")
+            for line in str(share_detail).split('\n'):
+                log.warning(f"WTFYO:  {line}")
+            log.warning(f'anon_string_found:  {anon_string_found}')
+            log.warning(f'enumerated_shares:  {enumerated_shares}')
+            log_result(log, test_name, test_description, False, 'check else condition', all_results)
+            
+    except Exception as e:
+        log.error(f"✗ {test_name} failed: {e}", exc_info=True)
+        log_result(log, test_name, test_description, False, str(e), all_results)
+
+
+def test_smb_share_enumeration_local(log, options, all_results):
+    """List available shares on the server via local account"""
+    test_name = "smb_share_enumeration_local"
+    test_description = "test smb share enumeration with local user access."
+
+    log.info(f'{equal_80}')
+    log.info("TEST: SMB Local User Server Share Enumeration ")
+    log.info(f'{equal_80}')
+
+    if "ONEFS" in options.software.upper():
+        get_account = "onefs_local_user"
+    elif "ONTAP" in options.software.upper():
+        get_account = "ontap_local_user"
+    else:  # VAST
+        get_account = "vast_local_user"
+    
+    dta = get_creds(log, get_account)
+    if dta is None:
+        log.error(f"✗ {test_name} failed: No Account found for: '{get_account}'")
+        log_result(log, test_name, test_description, False, 'check account used', all_results)
+        return
+    
+    user = dta["username"]
+    pasw = dta["password"]
+    try:
+        share_detail = list_shares(log, options.host, auth_type="local", usr=user, psw=pasw)
+        anon_string_found = False
+        enumerated_shares = False
+        for line in str(share_detail).split('\n'):
+            # log.debug(f'SHARE_LOCAL_USER:  {line}')
+            if 'Anonymous login successful' in line:
+                anon_string_found = True
+            if 'Sharename' in line or 'IPC$' in line:
+                enumerated_shares = True
+            if 'NT_STATUS_LOGON_FAILURE' in line or 'session setup failed' in line:
+                enumerated_shares = False
+                
+        if anon_string_found and enumerated_shares:   
+            log.error(f"✗ {test_name} failed. Anonymous access was used and shares were found")
+            log_result(log, test_name, test_description, False, "Anonymous access was NOT blocked and shares were found", all_results)
+        
+        elif anon_string_found and enumerated_shares is False:
+            log.error(f"✗ {test_name} failed. Anonymous access was used and no shares were found")
+            log_result(log, test_name, test_description, False, "Anonymous access was used and no shares were found", all_results)
+
+        elif anon_string_found is False and enumerated_shares is False:
+            log.success(f"✓ {test_name} passed. Local User Access Success, but we did not see any shares")
+            log_result(log, test_name, test_description, True, "Local User Access Success, but we did not see any shares", all_results)
+        
+        elif anon_string_found is False and enumerated_shares is True:
+            log.success(f"✓ {test_name} passed. Local User Access Success, we have shares listed")
+            log_result(log, test_name, test_description, True, "Local User Access success, we have shares listed", all_results)
+
+        else:
+            log.error(f"✗ {test_name} failed: please check the results of this test.")
+            for line in str(share_detail).split('\n'):
+                log.warning(f"WTFYO:  {line}")
+            log.warning(f'anon_string_found:  {anon_string_found}')
+            log.warning(f'enumerated_shares:  {enumerated_shares}')
+            log_result(log, test_name, test_description, False, 'check else condition', all_results)
+
+    except Exception as e:
+        log.error(f"✗ {test_name} failed: {e}", exc_info=True)
+        log_result(log, test_name, test_description, False, str(e), all_results)
+
+    
+def test_smb_anonymous_access_blocked(log, options, all_results) -> bool:
+    """Verify anonymous/guest access is denied."""
+    test_name = "smb_anonymous_access_blocked"
+    test_description = "ensure anonymous access is blocked."
+
+    log.info(f'{equal_80}')
+    log.info("TEST: SMB Verify Anonymous Access Blocked")
+    log.info(f'{equal_80}')
+
+    try:
+        smbclient.register_session(options.host, username="", password="", port=options.port)    
+    except ValueError as e:
+        if 'Connection refused' in str(e):
+            log.info("✓ Anonymous access correctly blocked — connection refused")
+            log_result(log, test_name, test_description, True, "Anonymous access blocked", all_results)
+        else:
+            log.error(f"✗ Unexpected ValueError: {e}")
+            log_result(log, test_name, test_description, False, str(e), all_results)
+
+    except SMBAuthenticationError:       
+        log.success(f"✓ {test_name} — anonymous access correctly denied")
+        log_result(log, test_name, test_description, True, "anonymous access correctly denied", all_results)
+
+    except Exception as e:
+        log.error(f"✗ {test_name} failed: {e}", exc_info=True)
+        log_result(log, test_name, test_description, False, str(e), all_results)
+
+
+def test_smb_authentication_local_user(log, options, all_results) -> bool:
+    """Authenticate with a local (non-domain) user account."""
+    test_name = "test_smb_authentication_local_user"
+    try:
+        smbclient.register_session(options.host, username=options.username,
+                                   password=options.password, port=options.port)
+        smbclient.listdir(_unc(options))
+        log.success(f"✓ {test_name} — local user: {options.username}")
+        all_results.append(SMB_TEST_RESULT(test_name,True, f"local:{options.username}"))
+        return True
+    except SMBAuthenticationError as e:
+        log.error(f"✗ {test_name} — auth rejected: {e}")
+        all_results.append(SMB_TEST_RESULT(test_name,False, str(e)))
+        return False
     except Exception as e:
         log.error(f"✗ {test_name} — {e}", exc_info=True)
         all_results.append(SMB_TEST_RESULT(test_name,False, str(e)))
         return False
 
 
-def test_smb_authentication_domain_user(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_authentication_domain_user(log, options, all_results) -> bool:
     """Authenticate with a domain user account."""
     test_name = "test_smb_authentication_domain_user"
     try:
@@ -230,51 +393,7 @@ def test_smb_authentication_domain_user(log, options: SMB_OPTIONS, all_results: 
         return False
 
 
-def test_smb_authentication_local_user(log, options: SMB_OPTIONS, all_results: list) -> bool:
-    """Authenticate with a local (non-domain) user account."""
-    test_name = "test_smb_authentication_local_user"
-    try:
-        smbclient.register_session(options.host, username=options.username,
-                                   password=options.password, domain="",
-                                   port=options.port)
-        smbclient.listdir(_unc(options))
-        log.success(f"✓ {test_name} — local user: {options.username}")
-        all_results.append(SMB_TEST_RESULT(test_name,True, f"local:{options.username}"))
-        return True
-    except SMBAuthenticationError as e:
-        log.error(f"✗ {test_name} — auth rejected: {e}")
-        all_results.append(SMB_TEST_RESULT(test_name,False, str(e)))
-        return False
-    except Exception as e:
-        log.error(f"✗ {test_name} — {e}", exc_info=True)
-        all_results.append(SMB_TEST_RESULT(test_name,False, str(e)))
-        return False
-
-
-def test_smb_anonymous_access_blocked(log, options: SMB_OPTIONS, all_results: list) -> bool:
-    """Verify anonymous/guest access is denied."""
-    test_name = "test_smb_anonymous_access_blocked"
-    try:
-        smbclient.register_session(options.host, username="", password="", port=options.port)
-        smbclient.listdir(_unc(options))
-        # If we get here, anonymous access was allowed — that is a failure
-        log.error(f"✗ {test_name} — anonymous access was NOT blocked")
-        all_results.append(SMB_TEST_RESULT(test_name,False, "anonymous access allowed"))
-        return False
-    except SMBAuthenticationError:
-        log.success(f"✓ {test_name} — anonymous access correctly denied")
-        all_results.append(SMB_TEST_RESULT(test_name,True, "access denied as expected"))
-        return True
-    except Exception as e:
-        log.error(f"✗ {test_name} — unexpected error: {e}", exc_info=True)
-        all_results.append(SMB_TEST_RESULT(test_name,False, str(e)))
-        return False
-
-
-# ─────────────────────────────────────────────
-#  Protocol Negotiation Tests
-# ─────────────────────────────────────────────
-def test_smb_dialect_negotiation(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_dialect_negotiation(log, options, all_results) -> bool:
     """Verify the negotiated SMB dialect matches expected version."""
     test_name = "test_smb_dialect_negotiation"
     try:
@@ -295,7 +414,7 @@ def test_smb_dialect_negotiation(log, options: SMB_OPTIONS, all_results: list) -
         return False
 
 
-def test_smb_signing_enabled(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_signing_enabled(log, options, all_results) -> bool:
     """Verify SMB signing is active on the connection."""
     test_name = "test_smb_signing_enabled"
     try:
@@ -315,7 +434,7 @@ def test_smb_signing_enabled(log, options: SMB_OPTIONS, all_results: list) -> bo
         return False
 
 
-def test_smb_encryption_enabled(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_encryption_enabled(log, options, all_results) -> bool:
     """Verify SMB encryption is active when required by share policy."""
     test_name = "test_smb_encryption_enabled"
     try:
@@ -341,10 +460,7 @@ def test_smb_encryption_enabled(log, options: SMB_OPTIONS, all_results: list) ->
         return False
 
 
-# ─────────────────────────────────────────────
-#  Share Access Tests
-# ─────────────────────────────────────────────
-def test_smb_connect_to_share(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_connect_to_share(log, options, all_results) -> bool:
     """Connect to the target share and confirm it is accessible."""
     test_name = "test_smb_connect_to_share"
     try:
@@ -361,7 +477,7 @@ def test_smb_connect_to_share(log, options: SMB_OPTIONS, all_results: list) -> b
         return False
 
 
-def test_smb_list_directory(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_list_directory(log, options, all_results) -> bool:
     """List the root of the share and confirm entries are returned."""
     test_name = "test_smb_list_directory"
     try:
@@ -380,10 +496,7 @@ def test_smb_list_directory(log, options: SMB_OPTIONS, all_results: list) -> boo
         return False
 
 
-# ─────────────────────────────────────────────
-#  File Operation Tests
-# ─────────────────────────────────────────────
-def test_smb_file_read(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_file_read(log, options, all_results) -> bool:
     """Write a file then read it back and verify contents."""
     test_name = "test_smb_file_read"
     fname = f"smb_read_test_{uuid.uuid4().hex[:8]}.txt"
@@ -409,7 +522,7 @@ def test_smb_file_read(log, options: SMB_OPTIONS, all_results: list) -> bool:
         return False
 
 
-def test_smb_file_write(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_file_write(log, options, all_results) -> bool:
     """Write a file and confirm it exists on the share."""
     test_name = "test_smb_file_write"
     fname = f"smb_write_test_{uuid.uuid4().hex[:8]}.txt"
@@ -432,7 +545,7 @@ def test_smb_file_write(log, options: SMB_OPTIONS, all_results: list) -> bool:
         return False
 
 
-def test_smb_file_delete(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_file_delete(log, options, all_results) -> bool:
     """Create a file then delete it and confirm it is gone."""
     test_name = "test_smb_file_delete"
     fname = f"smb_delete_test_{uuid.uuid4().hex[:8]}.txt"
@@ -455,7 +568,7 @@ def test_smb_file_delete(log, options: SMB_OPTIONS, all_results: list) -> bool:
         return False
 
 
-def test_smb_file_rename(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_file_rename(log, options, all_results) -> bool:
     """Create a file, rename it, confirm new name exists and old is gone."""
     test_name = "test_smb_file_rename"
     tag = uuid.uuid4().hex[:8]
@@ -482,7 +595,7 @@ def test_smb_file_rename(log, options: SMB_OPTIONS, all_results: list) -> bool:
         return False
 
 
-def test_smb_file_move(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_file_move(log, options, all_results) -> bool:
     """Create a file at the root, move it into a subdirectory."""
     test_name = "test_smb_file_move"
     tag = uuid.uuid4().hex[:8]
@@ -511,7 +624,7 @@ def test_smb_file_move(log, options: SMB_OPTIONS, all_results: list) -> bool:
         return False
 
 
-def test_smb_large_file_write_checksum(log, options: SMB_OPTIONS, all_results: list,
+def test_smb_large_file_write_checksum(log, options, all_results,
                                         size_mb: int = 512) -> bool:
     """Write a large file, read it back, verify SHA-256 checksum matches."""
     test_name = "test_smb_large_file_write_checksum"
@@ -551,7 +664,7 @@ def test_smb_large_file_write_checksum(log, options: SMB_OPTIONS, all_results: l
         return False
 
 
-def test_smb_many_small_files(log, options: SMB_OPTIONS, all_results: list,
+def test_smb_many_small_files(log, options, all_results,
                                count: int = 500) -> bool:
     """Create, verify, and delete a large number of small files (metadata stress test)."""
     test_name = "test_smb_many_small_files"
@@ -584,10 +697,7 @@ def test_smb_many_small_files(log, options: SMB_OPTIONS, all_results: list,
         return False
 
 
-# ─────────────────────────────────────────────
-#  Locking Tests
-# ─────────────────────────────────────────────
-def test_smb_exclusive_lock(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_exclusive_lock(log, options, all_results) -> bool:
     """Open a file exclusively and verify a second open is blocked."""
     test_name = "test_smb_exclusive_lock"
     fname = f"smb_excl_{uuid.uuid4().hex[:8]}.txt"
@@ -622,7 +732,7 @@ def test_smb_exclusive_lock(log, options: SMB_OPTIONS, all_results: list) -> boo
         return False
 
 
-def test_smb_byte_range_lock(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_byte_range_lock(log, options, all_results) -> bool:
     """Lock a byte range and verify another handle cannot write to that range."""
     test_name = "test_smb_byte_range_lock"
     fname = f"smb_bytelock_{uuid.uuid4().hex[:8]}.bin"
@@ -657,7 +767,7 @@ def test_smb_byte_range_lock(log, options: SMB_OPTIONS, all_results: list) -> bo
         return False
 
 
-def test_smb_oplock_granted(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_oplock_granted(log, options, all_results) -> bool:
     """Open a file and verify an opportunistic lock (oplock) is granted."""
     test_name = "test_smb_oplock_granted"
     fname = f"smb_oplock_{uuid.uuid4().hex[:8]}.txt"
@@ -691,7 +801,7 @@ def test_smb_oplock_granted(log, options: SMB_OPTIONS, all_results: list) -> boo
         return False
 
 
-def test_smb_lock_released_on_disconnect(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_lock_released_on_disconnect(log, options, all_results) -> bool:
     """Verify file locks are released after a client disconnects."""
     test_name = "test_smb_lock_released_on_disconnect"
     fname = f"smb_lockrel_{uuid.uuid4().hex[:8]}.txt"
@@ -720,10 +830,7 @@ def test_smb_lock_released_on_disconnect(log, options: SMB_OPTIONS, all_results:
         return False
 
 
-# ─────────────────────────────────────────────
-#  ACL / Permission Tests
-# ─────────────────────────────────────────────
-def test_smb_acl_access_allowed(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_acl_access_allowed(log, options, all_results) -> bool:
     """Verify an authorized user can access the share."""
     test_name = "test_smb_acl_access_allowed"
     try:
@@ -744,7 +851,7 @@ def test_smb_acl_access_allowed(log, options: SMB_OPTIONS, all_results: list) ->
         return False
 
 
-def test_smb_acl_access_denied(log, options: SMB_OPTIONS, all_results: list,
+def test_smb_acl_access_denied(log, options, all_results,
                                 denied_user: str = "", denied_pass: str = "") -> bool:
     """Verify an unauthorized user cannot access the share."""
     test_name = "test_smb_acl_access_denied"
@@ -766,7 +873,7 @@ def test_smb_acl_access_denied(log, options: SMB_OPTIONS, all_results: list,
         return False
 
 
-def test_smb_inherited_permissions(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_inherited_permissions(log, options, all_results) -> bool:
     """Create a subdirectory and verify permissions are inherited from parent."""
     test_name = "test_smb_inherited_permissions"
     tag    = uuid.uuid4().hex[:8]
@@ -797,10 +904,7 @@ def test_smb_inherited_permissions(log, options: SMB_OPTIONS, all_results: list)
         return False
 
 
-# ─────────────────────────────────────────────
-#  Concurrent Access Tests
-# ─────────────────────────────────────────────
-def test_smb_concurrent_reads(log, options: SMB_OPTIONS, all_results: list,
+def test_smb_concurrent_reads(log, options, all_results,
                                thread_count: int = 4) -> bool:
     """Multiple clients read the same file simultaneously."""
     test_name = "test_smb_concurrent_reads"
@@ -841,7 +945,7 @@ def test_smb_concurrent_reads(log, options: SMB_OPTIONS, all_results: list,
         return False
 
 
-def test_smb_concurrent_writes(log, options: SMB_OPTIONS, all_results: list,
+def test_smb_concurrent_writes(log, options, all_results,
                                 thread_count: int = 4) -> bool:
     """Multiple clients write to different files in the same share simultaneously."""
     test_name = "test_smb_concurrent_writes"
@@ -877,7 +981,7 @@ def test_smb_concurrent_writes(log, options: SMB_OPTIONS, all_results: list,
         return False
 
 
-def test_smb_concurrent_read_write(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_concurrent_read_write(log, options, all_results) -> bool:
     """One client writes while another reads the same file."""
     test_name = "test_smb_concurrent_read_write"
     fname = f"smb_concrw_{uuid.uuid4().hex[:8]}.txt"
@@ -926,48 +1030,7 @@ def test_smb_concurrent_read_write(log, options: SMB_OPTIONS, all_results: list)
         return False
 
 
-# ─────────────────────────────────────────────
-#  DFS Tests
-# ─────────────────────────────────────────────
-def test_smb_dfs_namespace_resolution(log, options: SMB_OPTIONS, all_results: list) -> bool:
-    """Resolve a DFS namespace path to its underlying target share."""
-    test_name = "test_smb_dfs_namespace_resolution"
-    if not options.dfs_namespace:
-        log.warning(f"⚠ {test_name} — skipped, no DFS namespace configured in SMB_OPTIONS")
-        all_results.append(SMB_TEST_RESULT(test_name,True, "skipped — no DFS namespace configured"))
-        return True
-    try:
-        smbclient.register_session(options.host, username=options.username,
-                                   password=options.password, port=options.port)
-        entries = smbclient.listdir(options.dfs_namespace)
-        detail = f"DFS resolved, {len(entries)} entries"
-        log.success(f"✓ {test_name} — {detail}")
-        all_results.append(SMB_TEST_RESULT(test_name,True, detail))
-        return True
-    except Exception as e:
-        log.error(f"✗ {test_name} — {e}", exc_info=True)
-        all_results.append(SMB_TEST_RESULT(test_name,False, str(e)))
-        return False
-
-
-def test_smb_dfs_failover(log, options: SMB_OPTIONS, all_results: list) -> bool:
-    """Verify DFS client fails over to secondary target when primary is unavailable."""
-    test_name = "test_smb_dfs_failover"
-    if not options.dfs_namespace:
-        log.warning(f"⚠ {test_name} — skipped, no DFS namespace configured")
-        all_results.append(SMB_TEST_RESULT(test_name,True, "skipped — no DFS namespace configured"))
-        return True
-    # DFS failover requires external coordination (taking a node offline)
-    # Log that this is a manual validation step
-    log.warning(f"⚠ {test_name} — requires manual node failover, marking for manual verification")
-    all_results.append(SMB_TEST_RESULT(test_name,True, "manual verification required"))
-    return True
-
-
-# ─────────────────────────────────────────────
-#  SMB3 Resilience Tests
-# ─────────────────────────────────────────────
-def test_smb_persistent_handle_after_failover(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_persistent_handle_after_failover(log, options, all_results) -> bool:
     """Verify SMB3 persistent handles survive a node failover."""
     test_name = "test_smb_persistent_handle_after_failover"
     log.warning(f"⚠ {test_name} — requires active node failover during test, marking for manual verification")
@@ -975,7 +1038,7 @@ def test_smb_persistent_handle_after_failover(log, options: SMB_OPTIONS, all_res
     return True
 
 
-def test_smb_session_reconnect(log, options: SMB_OPTIONS, all_results: list) -> bool:
+def test_smb_session_reconnect(log, options, all_results) -> bool:
     """Verify the SMB client can reconnect after a dropped session."""
     test_name = "test_smb_session_reconnect"
     fname = f"smb_reconnect_{uuid.uuid4().hex[:8]}.txt"
@@ -1010,10 +1073,7 @@ def test_smb_session_reconnect(log, options: SMB_OPTIONS, all_results: list) -> 
         return False
 
 
-# ─────────────────────────────────────────────
-#  Audit Event Tests
-# ─────────────────────────────────────────────
-def test_smb_audit_event_file_create(log, options: SMB_OPTIONS, all_results: list,
+def test_smb_audit_event_file_create(log, options, all_results,
                                       audit_log: list = None) -> bool:
     """Create a file and verify an audit event was generated."""
     test_name = "test_smb_audit_event_file_create"
@@ -1048,7 +1108,7 @@ def test_smb_audit_event_file_create(log, options: SMB_OPTIONS, all_results: lis
         return False
 
 
-def test_smb_audit_event_file_delete(log, options: SMB_OPTIONS, all_results: list,
+def test_smb_audit_event_file_delete(log, options, all_results,
                                       audit_log: list = None) -> bool:
     """Delete a file and verify an audit event was generated."""
     test_name = "test_smb_audit_event_file_delete"
@@ -1081,7 +1141,7 @@ def test_smb_audit_event_file_delete(log, options: SMB_OPTIONS, all_results: lis
         return False
 
 
-def test_smb_audit_event_permission_denied(log, options: SMB_OPTIONS, all_results: list,
+def test_smb_audit_event_permission_denied(log, options, all_results,
                                             audit_log: list = None,
                                             denied_user: str = "",
                                             denied_pass: str = "") -> bool:
@@ -1115,12 +1175,6 @@ def test_smb_audit_event_permission_denied(log, options: SMB_OPTIONS, all_result
         return False
 
 
-# ─────────────────────────────────────────────
-#  Test Runner
-# ─────────────────────────────────────────────
-import inspect
-import sys
-
 def get_test_functions(prefix: str = "test_smb"):
     current_module = sys.modules[__name__]
     return sorted(
@@ -1129,38 +1183,6 @@ def get_test_functions(prefix: str = "test_smb"):
          if test_name.startswith(prefix)],
         key=lambda x: inspect.getsourcelines(x[1])[1]
     )
-
-def run_smb_tests(log, options: SMB_OPTIONS, prefix: str = "test_smb") -> list:
-    """Discover and run all SMB test functions matching prefix."""
-    all_results = []
-    functions   = get_test_functions(prefix)
-
-    log.header(f"SMB Validation — {options.host}\\{options.share}")
-    log.info(f"  User    : {options.domain}\\{options.username}" if options.domain else f"  User    : {options.username}")
-    log.info(f"  Encrypt : {options.encrypt}")
-    log.info(f"  Signing : {options.require_signing}")
-    log.info(f"  Tests   : {len(functions)}")
-    log.divider()
-
-    for test_name,func in functions:
-        log.step(f"► {test_name}")
-        try:
-            result = func(log, options, all_results)
-        except Exception as e:
-            log.error(f"✗ {test_name} — unhandled exception: {e}", exc_info=True)
-            all_results.append(SMB_TEST_RESULT(test_name,False, str(e)))
-
-    # Summary
-    passed = sum(1 for r in all_results if r.passed)
-    failed = sum(1 for r in all_results if not r.passed)
-    log.divider()
-    log.info(f"Total    : {len(all_results)}")
-    log.info(f"✓ Passed : {passed}")
-    log.info(f"✗ Failed : {failed}")
-    log.divider()
-
-    return all_results
-
 
 # ─────────────────────────────────────────────
 #  Usage Example

@@ -131,7 +131,7 @@ class API_Connection_Manager:
                 return response
 
             except requests.exceptions.HTTPError as e:
-                logger.error(f"HTTP error [{method} {url}]: {e}")
+                # logger.error(f"HTTP error [{method} {url}]: {e}")
                 return response  # return even on HTTP errors so caller can inspect
 
             except requests.exceptions.ConnectionError as e:

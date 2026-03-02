@@ -7,7 +7,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import Optional
 import tempfile
-
+import time
 
 
 # ─────────────────────────────────────────────
@@ -17,10 +17,10 @@ import tempfile
 class MOUNT_OPTIONS:
     mount_mode = "rw"               # read-only (ro), read-write (rw)
     majorvers: int      = 3         # 3 for NFSv3, 4 for NFSv4
-    minorversion: int   = 0         # NFSv4: 0, 1, or 2 for NFSv4.0, 4.1, 4.2
+    minorvers: int      = 0         # NFSv4: 0, 1, or 2 for NFSv4.0, 4.1, 4.2
     pnfs: bool          = False     # enable parallel NFS (NFSv4.1+)
     nconnect: bool      = False     # enable multiple TCP connections
-    nconnect_count: int = 4         # number of parallel connections (NFSv4.1+)
+    nconnect_count: int = 0         # number of parallel connections (NFSv4.1+)
     transport: str      = 'tcp'     # tcp, udp, rdma
     rsize: int          = 1048576   # 1MB read size
     wsize: int          = 1048576   # 1MB write size
@@ -56,9 +56,11 @@ def _build_mount_options(options: MOUNT_OPTIONS) -> str:
     if options.majorvers == 3:
         opts.append("vers=3")
     elif options.majorvers == 4:
-        if options.minorversion > 2:
+        if options.minorvers > 2:
             raise ValueError("Invalid minor version for NFSv4: must be 0, 1, or 2")
-        opts.append(f"vers=4.{options.minorversion}")
+        opts.append(f"vers=4.{options.minorvers}")
+    else:
+        opts.append("vers=3")
 
     # Transport
     opts.append(f"proto={options.transport}")
@@ -87,12 +89,13 @@ def _build_mount_options(options: MOUNT_OPTIONS) -> str:
         opts.append(f"acdirmin={options.acdirmin}")
         opts.append(f"acdirmax={options.acdirmax}")
 
+    if options.nconnect:
+        opts.append(f"nconnect={options.nconnect_count}")
+
     # NFSv4.1+ specific options
-    if options.majorvers == 4 and options.minorversion >= 1:
+    if options.majorvers == 4 and options.minorvers >= 1:
         if options.pnfs:
             opts.append("pnfs")
-        if options.nconnect:
-            opts.append(f"nconnect={options.nconnect_count}")
         if options.nosharecache:
             opts.append("nosharecache")
         if options.nordirplus:
@@ -142,11 +145,13 @@ def mount_nas(
     """
 
     if os.geteuid() != 0:
-        log.error("✗ Mount operations require root privileges. Please run as root or with sudo.")
+        log.mntinfo("✗ Mount operations require root privileges. Please run as root or with sudo.")
         return False
 
     if options is None:
         options = MOUNT_OPTIONS()
+        log.mntinfo(f'RESET options: {options} -- WE DONT WANT TO GIVE AWAY CONTROL. ')
+        exit(0)
 
     if mount_point == "TMP":
         mount_point = tempfile.mkdtemp()         # find safe mounting location with random suffix
@@ -155,16 +160,22 @@ def mount_nas(
         mp_name = os.path.basename(mount_point)  # get just the random suffix
         mount_point = os.path.join(mp_zero, mp_middle, mp_name)
 
-    opts_str = _build_mount_options(options)
     source   = f"{nfs_server}:{nfs_export}"
-    version  = f"NFSv{options.majorvers}" if options.majorvers == 3 else f"NFSv4.{options.minorversion}"
+    version = "FUCKED"
+    if options.majorvers == 3:
+        version = "NFSv3"
+    elif options.majorvers == 4:
+        version = f"NFSv4.{options.minorvers}"
+
+    opts_str = _build_mount_options(options)
+
     command  = ["mount", "-t", "nfs", "-o", opts_str, source, mount_point]
 
-    log.step(f"Mounting {version} export")
-    log.info(f"Source      : {source}")
-    log.info(f"Mount point : {mount_point}")
-    log.info(f"Options     : {opts_str}")
-    log.info(f"Command     : {' '.join(command)}")
+    # log.step(f"Mounting {version} export")
+    # log.info(f"Source      : {source}")
+    # log.info(f"Mount point : {mount_point}")
+    # log.info(f"Options     : {opts_str}")
+    # log.info(f"Command     : {' '.join(command)}")
 
     if dry_run:
         log.warning("Dry run — mount command not executed")
@@ -174,9 +185,9 @@ def mount_nas(
     if not os.path.isdir(mount_point):
         try:
             os.makedirs(mount_point, exist_ok=True)
-            log.success(f"✓ Created mount point: {mount_point}")
+            log.mntinfo(f"✓ Created mount point: {mount_point}")
         except OSError as e:
-            log.error(f"✗ Failed to create mount point {mount_point}: {e}")
+            log.mntinfo(f"✗ Failed to create mount point {mount_point}: {e}")
             return False, mount_point
 
     # Execute mount
@@ -189,26 +200,38 @@ def mount_nas(
         )
 
         if result.returncode == 0:
-            log.success(f"✓ {version} mount successful: {mount_point}")
+            log.mntinfo(f"✓ {version} mount successful: {mount_point}")
 
             if uid != 0 or gid != 0:
                 try:
                     os.chown(mount_point, uid, gid)
-                    log.success(f"✓ Set ownership of {mount_point} to UID:{uid} GID:{gid}")
+                    log.mntinfo(f"✓ Set ownership of {mount_point} to UID:{uid} GID:{gid}")
                 except OSError as e:
-                    log.error(f"✗ Failed to set ownership on {mount_point}: {e}")
+                    time.sleep(1)
+                    # log.mntinfo(f"✗ Failed to set ownership on {mount_point}: {e}")
+                    # os.system(f'chown -Rv {uid}:{gid} {mount_point}')
+                    # print('break now?')
+                    # time.sleep(5)
+                    # os.system(f'chmod -Rv 777 {mount_point}')
+                    # print('break now?')
+                    # time.sleep(5)
                     # Not returning False here since the mount itself succeeded     
-
             return True, mount_point
         else:
-            log.error(f"✗ Mount failed (exit {result.returncode}): {result.stderr.strip()}")
+            log.mntinfo(f"✗ Mount failed (exit {result.returncode}): {result.stderr.strip()}")
+            if os.path.exists(mount_point):
+                os.rmdir(mount_point)
             return False, mount_point
 
     except subprocess.TimeoutExpired:
-        log.error(f"✗ Mount timed out after 30 seconds: {source}")
+        log.mntinfo(f"✗ Mount timed out after 30 seconds: {source}")
+        if os.path.exists(mount_point):
+                os.rmdir(mount_point)
         return False, mount_point
     except Exception as e:
-        log.error(f"✗ Unexpected error during mount: {e}", exc_info=True)
+        log.mntinfo(f"✗ Unexpected error during mount: {e}", exc_info=True)
+        if os.path.exists(mount_point):
+                os.rmdir(mount_point)
         return False, mount_point
 
 
@@ -240,7 +263,7 @@ def unmount_nas(
     """
 
     if os.geteuid() != 0:
-        log.error("✗ Mount operations require root privileges. Please run as root or with sudo.")
+        log.mntinfo("✗ Mount operations require root privileges. Please run as root or with sudo.")
         return False
 
     command = ["umount"]
@@ -250,15 +273,20 @@ def unmount_nas(
         command.append("-l")
     command.append(mount_point)
 
-    log.step(f"Unmounting: {mount_point}")
-    log.info(f"Command : {' '.join(command)}")
+    # log.step(f"Unmounting: {mount_point}")
+    # log.info(f"Command : {' '.join(command)}")
+
+    
+    
 
     if dry_run:
-        log.warning("Dry run — unmount command not executed")
+        log.mntinfo("Dry run — unmount command not executed")
         return True
 
     if not os.path.isdir(mount_point):
-        log.warning(f"✗ Mount point does not exist: {mount_point}")
+        log.mntinfo(f"✗ Mount point does not exist: {mount_point}")
+        log.blank()
+        log.blank()
         return False, False
 
     try:
@@ -268,26 +296,34 @@ def unmount_nas(
             text=True,
             timeout=30,
         )
-
         if result.returncode == 0:
-            log.success(f"✓ Unmount successful: {mount_point}")
-            
+            log.mntinfo(f"✓ Unmount successful: {mount_point}")
             os.rmdir(mount_point)  # clean up the mount point directory after unmounting
             if os.path.exists(mount_point):
-                log.warning(f"✗ Mount point directory still exists after unmount: {mount_point}")
+                log.mntinfo(f"✗ Mount point directory still exists after unmount: {mount_point}")
+                log.blank()
+                log.blank()
                 return True, False
             else:
-                log.success(f"✓ Mount point directory removed: {mount_point}")
+                log.mntinfo(f"✓ Mount point directory removed: {mount_point}")
+                log.blank()
+                log.blank()
                 return True, True
         else:
-            log.error(f"✗ Unmount failed (exit {result.returncode}): {result.stderr.strip()}")
+            log.mntinfo(f"✗ Unmount failed (exit {result.returncode}): {result.stderr.strip()}")
+            log.blank()
+            log.blank()            
             return False, False
 
     except subprocess.TimeoutExpired:
-        log.error(f"✗ Unmount timed out after 30 seconds: {mount_point}")
+        log.mntinfo(f"✗ Unmount timed out after 30 seconds: {mount_point}")
+        log.blank()
+        log.blank()
         return False, False
     except Exception as e:
-        log.error(f"✗ Unexpected error during unmount: {e}", exc_info=True)
+        log.mntinfo(f"✗ Unexpected error during unmount: {e}", exc_info=True)
+        log.blank()
+        log.blank()
         return False, False
 
 

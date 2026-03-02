@@ -76,12 +76,14 @@ DEFAULT_LEVEL_STYLES: dict[str, dict] = {
     "ERROR":    {"color": Colors.BRIGHT_RED,    "label": "ERROR  "},
     "CRITICAL": {"color": Colors.BOLD + Colors.BG_RED + Colors.WHITE, "label": "CRITICAL"},
     "STEP":     {"color": Colors.BRIGHT_MAGENTA,"label": "STEP   "},
+    "MNTINFO":  {"color": Colors.BRIGHT_MAGENTA,"label": "MOUNT "},
     "HEADER":   {"color": Colors.BRIGHT_CYAN + Colors.BOLD, "label": "HEADER "},
 }
 
 # Register custom levels
 CUSTOM_LEVELS = {
     "SUCCESS": 25,
+    "MNTINFO": 23,
     "STEP":    22,
     "HEADER":  21,
 }
@@ -89,10 +91,6 @@ for name, value in CUSTOM_LEVELS.items():
     if not hasattr(logging, name):
         logging.addLevelName(value, name)
 
-
-# ─────────────────────────────────────────────
-#  ColorLogger
-# ─────────────────────────────────────────────
 class ColorLogger:
     """
     A fully customizable colorful logger that writes rich color output to the
@@ -154,10 +152,19 @@ class ColorLogger:
         # ── File handler setup ──────────────────────────────────────────
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        # log_filename = (log_file or name) + ".log"
+        
         dtstamp = datetime.now().strftime(DEFAULT_DATETIME_FMT).replace(":", "").replace(" ", "_").replace(".", "")
-        log_filename = dtstamp + "_" + (log_file or name) + ".log"
+        
+        if log_file is not None:
+            log_filename = log_file.lower().rstrip('.log') + ".log"
+            
+        else:
+            log_filename = dtstamp + "_" + (log_file or name) + ".log"
+            log_filename = log_filename.replace('.log.log', '.log')
+        
         self.log_path = self.log_dir / log_filename
+        if os.path.exists(self.log_path):
+            os.remove(self.log_path)
 
         self._file_handler = RotatingFileHandler(
             self.log_path,
@@ -246,6 +253,7 @@ class ColorLogger:
     def error(self, msg: str, exc_info=False):   self._emit("ERROR",    msg, exc_info=exc_info)
     def critical(self, msg: str, exc_info=False):self._emit("CRITICAL", msg, exc_info=exc_info)
     def step(self, msg: str):                    self._emit("STEP",     msg)
+    def mntinfo(self, msg: str):                 self._emit("MNTINFO",  msg)
 
     def header(self, msg: str, width: int = None):
         """Print a prominent section header banner."""
@@ -301,11 +309,7 @@ class ColorLogger:
                 f"log={self.log_path}>")
 
 
-# ─────────────────────────────────────────────
-#  Registry — stores loggers by name
-# ─────────────────────────────────────────────
 _registry: dict[str, "ColorLogger"] = {}
-
 
 def get_logger(
     name: str               = "app",
@@ -337,26 +341,31 @@ def clear_logger(name: str):
     _registry.pop(name, None)
 
 
+ 
+def title_large(log, words):
+    chars = len(words) + 2
+    log.info('╔' + '═' * chars + '╗')
+    log.info('║' + words.center(chars) + '║')
+    log.info('╚' + '═' * chars + '╝')
+
+
+def title_small(log, words):
+    chars = len(words) + 2
+    log.info('┌' + '─' * chars + '┐')
+    log.info('|' + words.center(chars) + '|')
+    log.info('└' + '─' * chars + '┘')
+
+
+
+
+
+
+
 # ─────────────────────────────────────────────
 #  Demo / usage example
 # ─────────────────────────────────────────────
 # from colorlog import get_logger
 # log = get_logger("nfs-test", log_dir="/var/log/storage", datetime_fmt="%Y-%m-%d %H:%M:%S")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

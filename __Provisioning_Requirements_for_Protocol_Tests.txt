@@ -1,0 +1,186 @@
+# Provisioning Requirements for NFS and SMB Test Suites.
+
+
+'''''''''''''''''''''''''''''
+''' NFS TEST REQUIREMENTS '''
+'''''''''''''''''''''''''''''
+
++------------------------------+--------+---------------+--------------------------------------------------+
+| Volume Name                  | Size   | Export Type   | Purpose                                          |
++------------------------------+--------+---------------+--------------------------------------------------+
+| nfs_certify_rw_general       | 50 GB  | RW, NFS3+NFS4 | General + NFS3 + NFS4 behavioral tests           |
+| nfs_certify_ro               | 10 GB  | RO, NFS3+NFS4 | Readonly enforcement and read-operation tests    |
+| nfs_certify_large_io         | 500 GB | RW, NFS3+NFS4 | Large sequential I/O and parallel I/O perf       |
+| nfs_certify_nfs4_acl         | 20 GB  | RW, NFS4 only | NFSv4 ACL tests (ACL mode may need explicit set) |
+| nfs_certify_nfs4_delegation  | 20 GB  | RW, NFS4 only | Delegation tests (delegation enabled on export)  |
++------------------------------+--------+---------------+--------------------------------------------------+
+
+Test-to-Volume Mapping
+    
+    nfs_certify_rw_general covers:
+
+        All general NFS tests (mount_options, readwrite_enforcement, basic_file_ops, close_to_open, small_file_perf, concurrent_writers)
+        NFS3: nconnect, transport_protocol (TCP mount), nlm_basic_locking, idempotent_operations
+        NFS4: transport_protocol, stateful_operations, compound_operations, named_attributes, minorversion_features
+
+    nfs_certify_ro covers:
+
+        test_nfs_readonly_mount_enforcement
+        test_nfs_readonly_mount_read_operations
+
+    nfs_certify_large_io covers:
+
+        test_nfs_large_file_sequential_io — needs enough headroom for large file creation (suggest at least 200 GB free working space)
+        test_nfs4_parallel_io_performance — parallel writers will want significant space, think 300 GB+ free
+
+    nfs_certify_nfs4_acl covers:
+
+        test_nfs4_acls — on OneFS you'll want to confirm the ACL policy is set; on ONTAP you need v4-acl-preserve settings right on the volume
+
+    nfs_certify_nfs4_delegation covers:
+
+        test_nfs4_delegation_basic — isolating this avoids delegation interference on volumes shared with concurrent-writer tests
+
+
+    NFS3 UDP Transport Note
+        test_nfs3_transport_protocol tests both TCP and UDP. 
+            This doesn't require a separate volume — it just requires your export policy/rule on nfs_certify_rw_general allows UDP, which is off by default in many hardened configs. 
+            Flag this in your provisioning payload as an export rule attribute rather than a separate volume.
+
+    Other:
+        On OneFS, confirm that nfs4_acls are enabled at the zone/export level and that delegation is enabled per-export.
+        On ONTAP, verify the SVM's NFS configuration has v4.1-acl enabled if you're testing NFSv4.1, and that v4-delegations is on for the delegation volume. 
+        Both of these are easy to miss and will cause those specific tests to fail in ways that look like protocol bugs rather than config issues.
+
+
+nfs_volumes_to_provision = [
+    {
+        "name": "nfs_certify_rw_general",
+        "size_gb": 5,
+        "export_policy": "rw_nfs3_nfs4",
+        "protocols": ["nfs3", "nfs4"],
+        "access": "read-write",
+        "udp_enabled": True,          # for nfs3 transport test
+        "delegation_enabled": False,
+    },
+    {
+        "name": "nfs_certify_ro",
+        "size_gb": 1,
+        "export_policy": "ro_nfs3_nfs4",
+        "protocols": ["nfs3", "nfs4"],
+        "access": "read-only",
+    },
+    {
+        "name": "nfs_certify_large_io",
+        "size_gb": 5,
+        "export_policy": "rw_nfs3_nfs4",
+        "protocols": ["nfs3", "nfs4"],
+        "access": "read-write",
+    },
+    {
+        "name": "nfs_certify_nfs4_acl",
+        "size_gb": 5,
+        "export_policy": "rw_nfs4_only",
+        "protocols": ["nfs4"],
+        "access": "read-write",
+        "acl_mode": "nfsv4",          # OneFS: set acl policy; ONTAP: ntfs or mixed security style
+    },
+    {
+        "name": "nfs_certify_nfs4_delegation",
+        "size_gb": 5,
+        "export_policy": "rw_nfs4_only",
+        "protocols": ["nfs4"],
+        "access": "read-write",
+        "delegation_enabled": True,
+    },
+]        
+
+
+
+'''''''''''''''''''''''''''''
+''' SMB TEST REQUIREMENTS '''
+'''''''''''''''''''''''''''''
+
++--------------------+-------------+----------------+------------------------+-----------------------------------------------+
+| Share Name         | Volume Size | Auth Type      | Special Config         | Purpose                                       |
++--------------------+-------------+----------------+------------------------+-----------------------------------------------+
+| CERTIFY_ANON       | 1 GB        | Anonymous      | Guest access enabled   | Anonymous enumeration + access-blocked tests  |
+| CERTIFY_GENERAL    | 1 GB        | Domain + Local | Standard RW            | File ops, locking, concurrent I/O,            |
+|                    |             |                |                        | dialect/signing/encryption                    |
+| CERTIFY_LARGE_IO   | 5 GB        | Domain         | Standard RW            | Large file write + checksum, many small files |
+| CERTIFY_ACL_ALLOW  | 2 GB        | Domain         | Explicit allow ACE     | ACL allow, inherit tests                      |
+| CERTIFY_ACL_DENY   | 2 GB        | Domain         | Explicit deny ACE      | ACL deny tests                                |
+| CERTIFY_AUDIT      | 2 GB        | Domain         | SACL auditing enabled  | Audit event tests (create, delete, deny)      |
++--------------------+-------------+----------------+------------------------+-----------------------------------------------+
+
+Test-to-Share Mapping
+    CERTIFY_ANON covers:
+
+        test_smb_share_enumeration_anon — needs guest/anonymous enumeration enabled on this share specifically
+        test_smb_anonymous_access_blocked — ironic but correct: you verify anonymous can enumerate but cannot access file data; share exists, data access is blocked by NTFS permissions
+        test_smb_share_enumeration_local — also hits here via local user credential
+
+    CERTIFY_GENERAL covers the bulk of the suite:
+
+        test_smb_authentication_local_user / test_smb_authentication_domain_user
+        test_smb_dialect_negotiation, test_smb_signing_enabled, test_smb_encryption_enabled
+        test_smb_connect_to_share, test_smb_list_directory
+        test_smb_file_read/write/delete/rename/move
+        test_smb_exclusive_lock, test_smb_byte_range_lock, test_smb_oplock_granted, test_smb_lock_released_on_disconnect
+        test_smb_concurrent_reads/writes/read_write
+        test_smb_session_reconnect
+
+    CERTIFY_LARGE_IO covers:
+
+        test_smb_large_file_write_checksum — needs enough space for multi-GB file writes; 500 GB gives comfortable headroom
+        test_smb_many_small_files — inode-heavy workload, verify the volume isn't quota-constrained on file count
+
+    CERTIFY_ACL_ALLOW + CERTIFY_ACL_DENY cover:
+
+        test_smb_acl_access_allowed / test_smb_acl_access_denied — keeping these as separate shares with pre-baked ACEs is cleaner than toggling permissions mid-test
+        test_smb_inherited_permissions — needs a parent folder with inheritable ACEs already set at provision time; 
+        your test user should be in a domain group so you can test group-inherited ACLs
+
+    CERTIFY_AUDIT covers:
+
+        test_smb_audit_event_file_create, test_smb_audit_event_file_delete, test_smb_audit_event_permission_denied
+            Requires a SACL configured for Success+Failure on the root of the volume, and the storage appliance's audit subsystem must be active and pointed 
+            at a log destination before tests run; on OneFS this is isi audit settings + audit zones, on ONTAP it's vserver audit
+
+
+ad_objects_required = {
+    "users": [
+        {
+            "name": "svc_certify_rw",
+            "type": "domain_user",
+            "purpose": "General RW file ops and auth tests"
+        },
+        {
+            "name": "svc_certify_ro",
+            "type": "domain_user", 
+            "purpose": "ACL deny tests — this user gets explicit DENY ACE"
+        },
+        {
+            "name": "svc_certify_audit",
+            "type": "domain_user",
+            "purpose": "Audit event generation — needs to trigger deny events"
+        },
+    ],
+    "groups": [
+        {
+            "name": "grp_certify_allow",
+            "members": ["svc_certify_rw"],
+            "purpose": "Applied as Allow ACE on CERTIFY_ACL_ALLOW for inheritance testing"
+        },
+        {
+            "name": "grp_certify_deny",
+            "members": ["svc_certify_ro"],
+            "purpose": "Applied as Deny ACE on CERTIFY_ACL_DENY"
+        },
+    ],
+    "local_user": {
+        "name": "local_certify_user",
+        "type": "local_sam_account",  # created on the storage appliance, not AD
+        "purpose": "test_smb_authentication_local_user"
+    }
+}
