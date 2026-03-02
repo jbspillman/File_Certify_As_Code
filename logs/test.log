@@ -1,0 +1,33 @@
+
+2026.03.02 01:09:50 │ INFO     │ ╔═══════════════════════════════════╗
+2026.03.02 01:09:50 │ INFO     │ ║ Provision SMB Test Env for: ONTAP ║
+2026.03.02 01:09:50 │ INFO     │ ╚═══════════════════════════════════╝
+2026.03.02 01:09:50 │ STEP     │ Skipping volume: certify_smb_access_001
+2026.03.02 01:09:50 │ STEP     │ utilization lowest: aggregate_name: ssd03_ontap001_01 | aggregate_total_gib: 281.25 | aggregate_used_p: 4
+2026.03.02 01:09:50 │ STEP     │ utilization lowest: aggregate_name: ssd01_ontap001_01 | aggregate_total_gib: 105.46875 | aggregate_used_p: 1
+2026.03.02 01:09:50 │ STEP     │ Sending Volume Creation on SVM: svm02 VOL: certify_smb_access_001 | AGGR: ssd01_ontap001_01 | SIZE: 1G | SECURITY: ntfs
+2026.03.02 01:09:50 │ SUCCESS  │  ✓ Success - Volume Exists (409) for SMB Testing: svm02:certify_smb_access_001
+2026.03.02 01:09:50 │ STEP     │ Sending Qtree Creation: svm02:/certify_smb_access_001/smbX_none of smbX_none
+2026.03.02 01:09:50 │ SUCCESS  │  ✓ Success - Qtree Exists (400) for SMB Testing: svm02:/certify_smb_access_001/smbX_none
+2026.03.02 01:09:50 │ SUCCESS  │  ✓ Success - Share Exists (409) for SMB Testing: \\svm02\smbX_none
+2026.03.02 01:09:50 │ STEP     │ Sending Qtree Creation: svm02:/certify_smb_access_001/smb3_none of smb3_none
+2026.03.02 01:09:50 │ SUCCESS  │  ✓ Success - Qtree Exists (400) for SMB Testing: svm02:/certify_smb_access_001/smb3_none
+2026.03.02 01:09:50 │ SUCCESS  │  ✓ Success - Share Exists (409) for SMB Testing: \\svm02\smb3_none
+2026.03.02 01:09:50 │ STEP     │ Sending Qtree Creation: svm02:/certify_smb_access_001/smbX_encr of smbX_encr
+2026.03.02 01:09:50 │ SUCCESS  │  ✓ Success - Qtree Exists (400) for SMB Testing: svm02:/certify_smb_access_001/smbX_encr
+2026.03.02 01:09:50 │ SUCCESS  │  ✓ Success - Share Exists (409) for SMB Testing: \\svm02\smbX_encr
+2026.03.02 01:09:50 │ STEP     │ Sending Qtree Creation: svm02:/certify_smb_access_001/smbX_abe of smbX_abe
+2026.03.02 01:09:50 │ SUCCESS  │  ✓ Success - Qtree Exists (400) for SMB Testing: svm02:/certify_smb_access_001/smbX_abe
+2026.03.02 01:09:50 │ SUCCESS  │  ✓ Success - Share Exists (409) for SMB Testing: \\svm02\smbX_abe
+2026.03.02 01:09:50 │ STEP     │ Sending Qtree Creation: svm02:/certify_smb_access_001/smbX_cont_avail of smbX_cont_avail
+2026.03.02 01:09:50 │ SUCCESS  │  ✓ Success - Qtree Exists (400) for SMB Testing: svm02:/certify_smb_access_001/smbX_cont_avail
+2026.03.02 01:09:50 │ SUCCESS  │  ✓ Success - Share Exists (409) for SMB Testing: \\svm02\smbX_cont_avail
+2026.03.02 01:09:50 │ STEP     │ Sending Qtree Creation: svm02:/certify_smb_access_001/smbX_oplocks of smbX_oplocks
+2026.03.02 01:09:50 │ SUCCESS  │  ✓ Success - Qtree Exists (400) for SMB Testing: svm02:/certify_smb_access_001/smbX_oplocks
+2026.03.02 01:09:50 │ SUCCESS  │  ✓ Success - Share Exists (409) for SMB Testing: \\svm02\smbX_oplocks
+2026.03.02 01:09:50 │ STEP     │ Sending Qtree Creation: svm02:/certify_smb_access_001/smbX_snapshots of smbX_snapshots
+2026.03.02 01:09:50 │ SUCCESS  │  ✓ Success - Qtree Exists (400) for SMB Testing: svm02:/certify_smb_access_001/smbX_snapshots
+2026.03.02 01:09:51 │ SUCCESS  │  ✓ Success - Share Exists (409) for SMB Testing: \\svm02\smbX_snapshots
+2026.03.02 01:09:51 │ STEP     │ Sending Qtree Creation: svm02:/certify_smb_access_001/smbX_prev_versions of smbX_prev_versions
+2026.03.02 01:09:51 │ SUCCESS  │  ✓ Success - Qtree Exists (400) for SMB Testing: svm02:/certify_smb_access_001/smbX_prev_versions
+2026.03.02 01:09:51 │ SUCCESS  │  ✓ Success - Share Exists (409) for SMB Testing: \\svm02\smbX_prev_versions
