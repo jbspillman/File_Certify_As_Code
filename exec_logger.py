@@ -154,7 +154,6 @@ class ColorLogger:
         self.log_dir.mkdir(parents=True, exist_ok=True)
         
         dtstamp = datetime.now().strftime(DEFAULT_DATETIME_FMT).replace(":", "").replace(" ", "_").replace(".", "")
-        
         if log_file is not None:
             log_filename = log_file.lower().rstrip('.log') + ".log"
             

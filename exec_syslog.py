@@ -119,7 +119,7 @@ class TCPSyslogServer(socketserver.ThreadingTCPServer):
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
-def setup_logger(verbose: bool, silent: bool = False) -> logging.Logger:
+def setup_syslogger(verbose: bool, silent: bool = False) -> logging.Logger:
     logger = logging.getLogger('syslog_capture')
     logger.setLevel(logging.INFO)
     logger.propagate = False  # don't bubble up to root logger
@@ -141,19 +141,19 @@ def setup_logger(verbose: bool, silent: bool = False) -> logging.Logger:
 
 def main():
     parser = argparse.ArgumentParser(description='Temporary syslog capture server for protocol testing')
-    parser.add_argument('--host',    default='0.0.0.0',         help='Bind address (default: 0.0.0.0)')
+    parser.add_argument('--host',    default='0.0.0.0',            help='Bind address (default: 0.0.0.0)')
     parser.add_argument('--port',    type=int, default=55555,      help='Syslog port (default: 55555)')
-    parser.add_argument('--proto',   choices=['udp','tcp','both'], default='both', help='Protocol to listen on')
-    parser.add_argument('--output',  default=None,               help='Output file (default: syslog_capture_<timestamp>.log)')
-    parser.add_argument('--verbose', action='store_true',        help='Verbose output')
-    parser.add_argument('--silent',  action='store_true',        help='Suppress console output, log to file only')
+    parser.add_argument('--proto',   choices=['udp','tcp','both'], default='udp', help='Protocol to listen on')
+    parser.add_argument('--output',  default=None,                 help='Output file (default: syslog_capture_<timestamp>.log)')
+    parser.add_argument('--verbose', action='store_true',          help='Verbose output')
+    parser.add_argument('--silent',  action='store_true',          help='Suppress console output, log to file only')
     args = parser.parse_args()
 
     if args.output is None:
         ts = datetime.now().strftime('%Y%m%d_%H%M%S')
         args.output = f'syslog_capture_{ts}.log'
 
-    logger = setup_logger(args.verbose, silent=args.silent)
+    logger = setup_syslogger(args.verbose, silent=args.silent)
     capture = SyslogCapture(args.output, logger)
 
     servers = []
